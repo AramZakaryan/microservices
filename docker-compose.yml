@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  user-service:
+    container_name: user-service
+    build: ./user-service
+    ports:
+      - "3200:3200"
+    restart: always
+    env_file:
+      - ./user-service/.env
+    depends_on:
+      - mongo
+
+  task-service:
+    container_name: task-service
+    build: ./task-service
+    ports:
+      - "3300:3300"
+    restart: always
+    env_file:
+      - ./task-service/.env
+    depends_on:
+      - mongo
+
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "3100:3100"
+    restart: always
+    env_file:
+      - ./api-gateway/.env.docker
+    depends_on:
+      - user-service
+      - task-service
+
+  mongo:
+    image: mongo
+    ports:
+      - "27017:27017"
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:
