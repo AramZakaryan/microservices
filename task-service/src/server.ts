@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import axios from 'axios';
 
 dotenv.config();
 const app = express();
@@ -16,27 +17,38 @@ app.get('/', (_, res) => {
 });
 
 // Tasks endpoint - Extract user from API Gateway header
-app.get('/tasks', (req, res) => {
-    const userHeader = req.header('x-user-data');
-    let user = null;
+app.get('/tasks', async (req, res) => {
 
-    try {
-        user = userHeader ? JSON.parse(userHeader) : null;
-    } catch (error) {
-        console.error("Error parsing x-user-data:", error);
-        res.status(400).json({message: "Invalid user data format"});
+    const token = req.header('Authorization')?.split(' ')[1];
+    if (!token) {
+        res.status(401).json({message: "No token provided"});
         return
     }
 
-    if (!user) {
+    let data;
+
+    try {
+        const response = await axios.get(`${process.env.USER_SERVICE_URL}/me`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        data = response.data;
+    } catch (error: any) {
+        console.error("Failed to fetch user info:", error.message);
+        res.status(403).json({message: "Invalid or expired token"});
+        return
+    }
+
+    if (!data) {
         res.status(401).json({message: "Unauthorized"});
         return
     }
 
-    console.log(`User ${user.user} with role ${user.role} accessed /tasks`);
+    console.log(`User ${data.user} with role ${data.role} accessed /tasks`);
 
     // Example: Admin sees all tasks, User sees only their own tasks
-    const tasks = user.role === "admin"
+    const tasks = data.role === "admin"
         ? [
             {id: 1, title: "Admin Task 1", completed: false, assignedTo: "admin"},
             {id: 2, title: "User Task 2", completed: false, assignedTo: "user"}
