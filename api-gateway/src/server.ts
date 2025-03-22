@@ -4,6 +4,7 @@ import cors from 'cors';
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import jwt from 'jsonwebtoken';
 import axios from 'axios';
+import {logger} from "./logger";
 
 
 dotenv.config();
@@ -44,7 +45,45 @@ const authorize = (requiredRole: string) => {
     };
 };
 
+// request logging middleware
+app.use((req, _, next) => {
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.split(' ')[1] || 'no-token';
+
+    logger.info({
+        method: req.method,
+        url: req.url,
+        token: token.substring(0, 10) + '...', // don't log full token in production
+    }, 'Incoming request');
+
+    next();
+});
+
+// response logging middleware
+app.use((req, res, next) => {
+    const startTime = Date.now();
+
+    const originalJson = res.json;
+
+    res.json = function (body: any) {
+        const duration = Date.now() - startTime;
+
+        logger.info({
+            method: req.method,
+            url: req.url,
+            status: res.statusCode,
+            responseTimeMs: duration,
+            responseBody: body,
+        }, 'Response sent');
+
+        return originalJson.call(this, body);
+    };
+
+    next();
+});
+
 app.get('/', (req, res) => {
+    logger.info('Root route hit');
     res.status(200).json({serviceName: "api-gateway", version: "0.0.1"});
 });
 
@@ -91,4 +130,4 @@ app.use('/api/admin', authenticate, authorize('admin'), createProxyMiddleware({
 }));
 
 const PORT = process.env.PORT || 3100;
-app.listen(PORT, () => console.log(`API Gateway running on port ${PORT}`));
+app.listen(PORT, () => logger.info(`API Gateway running on port ${PORT}`));

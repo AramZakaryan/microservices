@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import {logger} from "./logger";
 
 dotenv.config();
 const app = express();
@@ -15,11 +16,48 @@ const users = {
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI as string)
-    .then(() => console.log("MongoDB connected"))
-    .catch(err => console.error("MongoDB connection error:", err));
+    .then(() => logger.info("MongoDB connected"))
+    .catch(err => logger.error("MongoDB connection error:", err));
 
-// Entry endpoint
+// request logging middleware
+app.use((req, _, next) => {
+    const authHeader = req.header('Authorization');
+    const token = authHeader?.split(' ')[1] || 'no-token';
+
+    logger.info({
+        method: req.method,
+        url: req.url,
+        token: token.substring(0, 10) + '...', // don't log full token in production
+    }, 'Incoming request');
+
+    next();
+});
+
+// response logging middleware
+app.use((req, res, next) => {
+    const startTime = Date.now();
+
+    const originalJson = res.json;
+
+    res.json = function (body: any) {
+        const duration = Date.now() - startTime;
+
+        logger.info({
+            method: req.method,
+            url: req.url,
+            status: res.statusCode,
+            responseTimeMs: duration,
+            responseBody: body,
+        }, 'Response sent');
+
+        return originalJson.call(this, body);
+    };
+
+    next();
+});
+
 app.get('/', (_, res) => {
+    logger.info('Root route hit');
     res.status(200).json({ serviceName: "user-service", version: "0.0.1" });
 });
 
@@ -71,4 +109,4 @@ app.get('/me', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3200;
-app.listen(PORT, () => console.log(`user-service running on port ${PORT}`));
+app.listen(PORT, () => logger.info(`user-service running on port ${PORT}`));
