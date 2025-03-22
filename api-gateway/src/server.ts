@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import jwt from 'jsonwebtoken';
+import axios from 'axios';
+
 
 dotenv.config();
 const app = express();
@@ -46,8 +48,24 @@ app.get('/', (req, res) => {
     res.status(200).json({serviceName: "api-gateway", version: "0.0.1"});
 });
 
-app.get('/health', (_, res) => {
-    res.status(200).json({ status: 'ok', service: 'api-gateway' });
+app.get('/health', async (_, res) => {
+    try {
+        const [user, task] = await Promise.all([
+            axios.get(`${process.env.USER_SERVICE_URL}/health`),
+            axios.get(`${process.env.TASK_SERVICE_URL}/health`)
+        ]);
+
+        res.json({
+            service: 'api-gateway',
+            userService: user.data,
+            taskService: task.data
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            message: 'One or more services are unavailable'
+        });
+    }
 });
 
 // Proxy requests to user-service (no authentication required for login)
