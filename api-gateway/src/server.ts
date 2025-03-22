@@ -46,6 +46,9 @@ app.get('/', (req, res) => {
     res.status(200).json({serviceName: "api-gateway", version: "0.0.1"});
 });
 
+app.get('/health', (_, res) => {
+    res.status(200).json({ status: 'ok', service: 'api-gateway' });
+});
 
 // Proxy requests to user-service (no authentication required for login)
 app.use('/api/users', createProxyMiddleware({

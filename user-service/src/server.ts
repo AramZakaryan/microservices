@@ -23,6 +23,15 @@ app.get('/', (_, res) => {
     res.status(200).json({ serviceName: "user-service", version: "0.0.1" });
 });
 
+app.get('/health', async (_, res) => {
+    const isMongoDBConnected = mongoose.connection.readyState === 1;
+    res.status(isMongoDBConnected ? 200 : 500).json({
+        status: isMongoDBConnected ? 'ok' : 'error',
+        mongo: isMongoDBConnected ? 'connected' : 'disconnected',
+        service: 'user-service'
+    });
+});
+
 // Authentication endpoint
 app.post('/login', (req, res) => {
     const { userName, password } = req.body;

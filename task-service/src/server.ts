@@ -16,6 +16,15 @@ app.get('/', (_, res) => {
     res.status(200).json({serviceName: "task-service", version: "0.0.1"});
 });
 
+app.get('/health', async (_, res) => {
+    const isMongoDBConnected = mongoose.connection.readyState === 1;
+    res.status(isMongoDBConnected ? 200 : 500).json({
+        status: isMongoDBConnected ? 'ok' : 'error',
+        mongo: isMongoDBConnected ? 'connected' : 'disconnected',
+        service: 'task-service'
+    });
+});
+
 // Tasks endpoint - Extract user from API Gateway header
 app.get('/tasks', async (req, res) => {
 
